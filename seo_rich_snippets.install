@@ -1,0 +1,24 @@
+<?php
+/**
+ * SEO Rich Snippets install file.
+ */
+
+/**
+ * Implements hook_install().
+ */
+function seo_rich_snippets_install() {
+  $list = seo_rich_snippets_list();
+  foreach ($list as $name => $info) {
+    variable_set($name, $info['default_value']);
+  }
+}
+
+/**
+ * Implements hook_uninstall().
+ */
+function seo_rich_snippets_uninstall() {
+  $list = seo_rich_snippets_list();
+  foreach ($list as $name => $info) {
+    variable_del($name);
+  }
+}
