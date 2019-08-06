@@ -1,0 +1,285 @@
+<?php
+
+/**
+ * @file
+ * Provides rich snippets for search engine.
+ */
+
+define('SEO_RICH_SNIPPETS_WEBSITE', 'seo_rich_snippets:WebSite');
+define('SEO_RICH_SNIPPETS_MEDICAL_WEBPAGE', 'seo_rich_snippets:MedicalWebPage');
+define('SEO_RICH_SNIPPETS_CORPORATION', 'seo_rich_snippets:Corporation');
+
+/**
+ * Implements hook_menu().
+ */
+function seo_rich_snippets_menu() {
+
+  $items['admin/config/system/site-rich-snippets'] = array(
+    'title' => 'Rich Snippets',
+    'description' => 'Configure rich snippets data for the site.',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('seo_rich_snippets_admin_form'),
+    'access arguments' => array('administer rich snippets'),
+  );
+
+  return $items;
+}
+
+/**
+ * Implements hook_permission().
+ */
+function seo_rich_snippets_permission() {
+  return array(
+    'administer rich snippets' =>  array(
+      'title' => t('Administer rich snippets'),
+      'description' => t('Configure various rich snippet values for the site.'),
+    ),
+  );
+}
+
+/**
+ * Get list of SEO Rich snippets managed by this module.
+ */
+function seo_rich_snippets_list() {
+  $list = [
+    SEO_RICH_SNIPPETS_WEBSITE => [
+      'label' => 'Website',
+      'default_value' => '
+      {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "url": "[site:url]",
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": "[site:url]search/search_term_string",
+          "query-input": "required name=search_term_string"
+        }
+      }',
+      'description' => t('Google Sitelinks Searchbox. Read more about it in the following <a href="@link">external link</a>.', ['@link' => 'https://developers.google.com/search/docs/data-types/sitelinks-searchbox']),
+    ],
+    SEO_RICH_SNIPPETS_MEDICAL_WEBPAGE => [
+      'label' => 'MedicalWebPage',
+      'default_value' => '
+      {
+        "@context": "https://schema.org",
+        "@type": "MedicalWebPage",
+        "name": "[site:name]",
+        "image": "[site:url]/all/themes/custom/frontend_theme/source/svg/logo.svg",
+        "additionalType": "[site:url]",
+        "url": "[site:url]",
+        "author": "[site:name]",
+        "provider": "[site:name]",
+        "publisher": "[site:name]",
+        "inLanguage": "[site:current-page:language_content]"
+      }',
+      'description' => t('Schema.org Medical Webpage. Read more about it in the following <a href="@link">external link</a>.', ['@link' => 'https://schema.org/MedicalWebPage']),
+    ],
+    SEO_RICH_SNIPPETS_CORPORATION => [
+      'label' => 'Corporation',
+      'default_value' => '
+      {
+        "@context":"https://schema.org",
+        "@type":"Corporation",
+        "url":"[site:url]",
+        "sameAs":[
+          "https://www.facebook.com/[site:name]/",
+          "https://www.facebook.com/[site:name]/",
+          "https://twitter.com/[site:name]/",
+          "https://de.pinterest.com/[site:name]/",
+          "https://www.youtube.com/user/[site:name]/",
+          "https://www.linkedin.com/company/[site:name]/",
+          "https://plus.google.com/[site:name]/",
+          "https://www.instagram.com/[site:name]/"],
+        "additionalType":[
+        ],
+        "logo":"[site:url]sites/default/files/logo.jpg",
+        "name":"[site:name]",
+        "legalName":"[site:name]",
+        "alternateName":"[site:name]",
+        "description":"",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "",
+          "addressLocality": "",
+          "addressRegion": "",
+          "postalCode": ""
+        },
+        "contactPoint": {
+          "@type": "ContactPoint",
+          "telephone": "",
+          "contactType": "customer service",
+          "contactOption": [
+            "TollFree",
+            "HearingImpairedSupported"
+          ]
+        }
+      }',
+      'description' => t('Schema.org Corporation. Read more about it in the following <a href="@link">external link</a>.', ['@link' => 'https://schema.org/Corporation']),
+    ],
+  ];
+  return $list;
+}
+
+/**
+ * Page callback for rich snippet admin configuration.
+ */
+function seo_rich_snippets_admin_form($form, $form_state) {
+  // Display Token Help.
+  $form['token_help'] = array(
+    '#theme' => 'token_tree_link',
+    '#token_types' => array('site'),
+  );
+  $form['vertical_tabs'] = array(
+    '#type' => 'vertical_tabs',
+    '#default_tab' => 'edit-Search',
+  );
+  $list = seo_rich_snippets_list();
+  foreach ($list as $name => $info) {
+    $group = &$form['group_' . $name];
+    $group = [
+      '#type' => 'fieldset',
+      '#title' => $info['label'],
+      '#collapsible' => TRUE,
+      '#group' => 'vertical_tabs',
+    ];
+    $group[$name] = [
+      '#title' => t('JSON+ld'),
+      '#default_value' => variable_get($name, $info['default_value']),
+      '#type' => 'textarea',
+      '#description' => $info['description'],
+    ];
+    $group[$name . ':snippet'] = array(
+      '#type' => 'item',
+      '#title' => t('Current value'),
+      '#markup' => '<pre>' . _seo_rich_snippets_get_ld_json($name) . '</pre>',
+    );
+  }
+  return system_settings_form($form);
+}
+
+/**
+ * Retrieve ld+json schema content.
+ */
+function _seo_rich_snippets_get_ld_json($name, $tokens = ['site']) {
+  $snippet = variable_get($name, '');
+  $snippet = token_replace($snippet, $tokens);
+  return $snippet;
+}
+
+/**
+ * Implements hook_process_page().
+ */
+function seo_rich_snippets_process_page(&$vars) {
+  $list = seo_rich_snippets_list();
+  $snippet_tags = [];
+  foreach ($list as $name => $info) {
+    $snippet = _seo_rich_snippets_get_ld_json($name);
+    $snippet_tags[$name] = array(
+      '#type' => 'html_tag',
+      '#tag' => 'script',
+      '#value' => $snippet,
+      '#attributes' => array('type' => 'application/ld+json'),
+      '#prefix' => '<!-- ' . strip_tags($name) . ' -->',
+    );
+  }
+  if ($snippet_tags) {
+    $vars['page']['content']['seo_rich_snippets'] = $snippet_tags;
+  }
+  $vars['page']['content']['seo_rich_snippets']['breadcrumb'] = seo_rich_snippets_resolve_breadcrumb();
+}
+
+/**
+ * Convert a list of breadcrumb to JSON-LD.
+ */
+function seo_rich_snippets_resolve_breadcrumb() {
+  $breadcrumbs = drupal_get_breadcrumb();
+  $breadcrumbs_array = [];
+  if (!empty($breadcrumbs)) {
+    $html = implode('', $breadcrumbs);
+    $dom = new DOMDocument;
+    $dom->loadHTML($html);
+    foreach ($dom->getElementsByTagName('a') as $node) {
+      $breadcrumbs_array[] = [
+        'label' => $node->textContent,
+        'href' => $node->getAttribute( 'href' ),
+      ];
+    }
+  }
+
+  $json_ld = [
+    '@context' => 'http://schema.org',
+    '@type' => 'BreadcrumbList',
+    'itemListElement' => [],
+  ];
+  $pos = 1;
+  foreach ($breadcrumbs_array as $item) {
+    $json_ld['itemListElement'][] = [
+      '@type' => 'ListItem',
+      'position' => $pos,
+      'item' => [
+        '@id' => url($item['href'], ['absolute' => TRUE]),
+        'name' => $item['label'],
+      ],
+    ];
+    $pos++;
+  }
+  $json_ld_tag = [
+    '#type' => 'html_tag',
+    '#tag' => 'script',
+    '#value' => drupal_json_encode($json_ld),
+    '#attributes' => ['type' => 'application/ld+json'],
+    '#prefix' => '<!-- seo_rich_snippets:BreadcrumbList -->',
+  ];
+  return $json_ld_tag;
+}
+
+/**
+ * Implements hook_preprocess_field().
+ */
+function seo_rich_snippets_preprocess_field(&$vars) {
+  $field_type = $vars['element']['#field_type'];
+
+  switch ($field_type) {
+    case 'brightcove_field':
+      _seo_rich_snippets_process_brightcove_field($vars);
+      break;
+
+    default:
+      break;
+  }
+}
+
+/**
+ * Helper to extract and attach rich video snippets to brightcove fields.
+ */
+function _seo_rich_snippets_process_brightcove_field(&$vars) {
+  if (!empty($vars['items'])) {
+    foreach ($vars['items'] as &$item) {
+      $item['#prefix'] = isset($item['#prefix']) ? $item['#prefix'] : '';
+      $bcid = $item['#element']['bcid'];
+      $brightcove_id = $item['#element']['brightcove_id'];
+      $client = entity_load_single('brightcove_client', $bcid);
+      $video = brightcove_load_video($brightcove_id, $client);
+      $info = array(
+        '@context' => 'https://schema.org',
+        '@type' => 'VideoObject',
+        'headline' => $video->getName(),
+        'keywords' => implode(', ', $video->getTags()),
+        'caption' => $video->getDescription(),
+        'text' => $video->getLongDescription(),
+        'publisher' => array(
+          '@type' => 'Organization',
+          'name' => "Giotrif",
+          '@logo' => array(
+            '@type' => 'ImageObject',
+            'url' => 'http://giotrif.com/sites/all/themes/custom/giotrif_frontend/source/svg/logo.svg',
+            'width' => '1101',
+            'height' => '471',
+          ),
+        ),
+      );
+      $script_tag = '<script type="application/ld+json">' . drupal_json_encode($info) . '</script>';
+      $item['#prefix'] = $script_tag . $item['#prefix'];
+    }
+  }
+}

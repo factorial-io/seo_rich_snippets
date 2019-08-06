@@ -1,0 +1,1 @@
+A Drupal Module which provides rich snippets for search engine.

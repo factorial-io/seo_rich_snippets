@@ -1,0 +1,5 @@
+name = SEO Rich snippets
+description = Rich snippets for search engines
+core = 7.x
+
+configure = admin/config/system/site-rich-snippets
