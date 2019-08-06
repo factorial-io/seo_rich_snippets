@@ -7,7 +7,7 @@ You may use this [link for docmentation on Drupal.org](https://www.drupal.org/do
 
 ## Configuration
 
-Visit admin/config/system/site-rich-snippets to configure.
+Visit admin/config/system/seo-rich-snippets to configure.
 
 ## Usage
 

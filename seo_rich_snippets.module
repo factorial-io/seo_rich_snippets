@@ -14,8 +14,8 @@ define('SEO_RICH_SNIPPETS_CORPORATION', 'seo_rich_snippets:Corporation');
  */
 function seo_rich_snippets_menu() {
 
-  $items['admin/config/system/site-rich-snippets'] = array(
-    'title' => 'Rich Snippets',
+  $items['admin/config/system/seo-rich-snippets'] = array(
+    'title' => 'SEO Rich Snippets',
     'description' => 'Configure rich snippets data for the site.',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('seo_rich_snippets_admin_form'),
