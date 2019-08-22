@@ -170,6 +170,10 @@ function _seo_rich_snippets_get_ld_json($name, $tokens = ['site']) {
  * Implements hook_process_page().
  */
 function seo_rich_snippets_process_page(&$vars) {
+  // If the $vars['page']['content'] is not a render array, bail out.
+  if (!empty($vars['page']['content']) && !is_array($vars['page']['content'])) {
+    return;
+  }
   $list = seo_rich_snippets_list();
   $snippet_tags = [];
   foreach ($list as $name => $info) {
