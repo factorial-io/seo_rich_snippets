@@ -186,6 +186,15 @@ function seo_rich_snippets_process_page(&$vars) {
       '#prefix' => '<!-- ' . strip_tags($name) . ' -->',
     );
   }
+  // Adjust in case the content is already rendered at this point.
+  if (is_string($vars['page']['content'])) {
+    $currrent_value = $vars['page']['content'];
+    $vars['page']['content'] = [
+      'original_content' => [
+        '#markup' => $currrent_value,
+      ],
+    ];
+  }
   if ($snippet_tags) {
     $vars['page']['content']['seo_rich_snippets'] = $snippet_tags;
   }
