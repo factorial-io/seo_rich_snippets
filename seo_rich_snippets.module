@@ -268,31 +268,42 @@ function seo_rich_snippets_preprocess_field(&$vars) {
 function _seo_rich_snippets_process_brightcove_field(&$vars) {
   if (!empty($vars['items'])) {
     foreach ($vars['items'] as &$item) {
-      $item['#prefix'] = isset($item['#prefix']) ? $item['#prefix'] : '';
-      $bcid = $item['#element']['bcid'];
-      $brightcove_id = $item['#element']['brightcove_id'];
-      $client = entity_load_single('brightcove_client', $bcid);
-      $video = brightcove_load_video($brightcove_id, $client);
-      $info = array(
-        '@context' => 'https://schema.org',
-        '@type' => 'VideoObject',
-        'headline' => $video->getName(),
-        'keywords' => implode(', ', $video->getTags()),
-        'caption' => $video->getDescription(),
-        'text' => $video->getLongDescription(),
-        'publisher' => array(
-          '@type' => 'Organization',
-          'name' => "Giotrif",
-          '@logo' => array(
-            '@type' => 'ImageObject',
-            'url' => 'http://giotrif.com/sites/all/themes/custom/giotrif_frontend/source/svg/logo.svg',
-            'width' => '1101',
-            'height' => '471',
+      try {
+        $item['#prefix'] = isset($item['#prefix']) ? $item['#prefix'] : '';
+        $bcid = $item['#element']['bcid'];
+        $brightcove_id = $item['#element']['brightcove_id'];
+        $client = entity_load_single('brightcove_client', $bcid);
+        $video = brightcove_load_video($brightcove_id, $client);
+        $info = array(
+          '@context' => 'https://schema.org',
+          '@type' => 'VideoObject',
+          'headline' => $video->getName(),
+          'keywords' => implode(', ', $video->getTags()),
+          'caption' => $video->getDescription(),
+          'text' => $video->getLongDescription(),
+          'publisher' => array(
+            '@type' => 'Organization',
+            'name' => "Giotrif",
+            '@logo' => array(
+              '@type' => 'ImageObject',
+              'url' => 'http://giotrif.com/sites/all/themes/custom/giotrif_frontend/source/svg/logo.svg',
+              'width' => '1101',
+              'height' => '471',
+            ),
           ),
-        ),
-      );
-      $script_tag = '<script type="application/ld+json">' . drupal_json_encode($info) . '</script>';
-      $item['#prefix'] = $script_tag . $item['#prefix'];
+        );
+        $script_tag = '<script type="application/ld+json">' . drupal_json_encode($info) . '</script>';
+        $item['#prefix'] = $script_tag . $item['#prefix'];
+      }
+      catch (Exception $exc) {
+        $trace = '<pre>' . $exc->getTraceAsString() . '</pre>';
+        watchdog(
+          'seo_rich_snippets',
+          $trace,
+          NULL,
+          WATCHDOG_ERROR
+        );
+      }
     }
   }
 }
