@@ -30,7 +30,7 @@ function seo_rich_snippets_menu() {
  */
 function seo_rich_snippets_permission() {
   return array(
-    'administer rich snippets' =>  array(
+    'administer rich snippets' => array(
       'title' => t('Administer rich snippets'),
       'description' => t('Configure various rich snippet values for the site.'),
     ),
@@ -209,12 +209,12 @@ function seo_rich_snippets_resolve_breadcrumb() {
   $breadcrumbs_array = [];
   if (!empty($breadcrumbs)) {
     $html = implode('', $breadcrumbs);
-    $dom = new DOMDocument;
+    $dom = new DOMDocument();
     $dom->loadHTML($html);
     foreach ($dom->getElementsByTagName('a') as $node) {
       $breadcrumbs_array[] = [
         'label' => $node->textContent,
-        'href' => $node->getAttribute( 'href' ),
+        'href' => $node->getAttribute('href'),
       ];
     }
   }
@@ -278,7 +278,6 @@ function _seo_rich_snippets_process_brightcove_field(&$vars) {
   }
 }
 
-
 /**
  * Helper to extract and attach rich video snippets to brightcove fields.
  */
@@ -302,43 +301,52 @@ function _seo_rich_snippets_create_ld_json_script_tag_from_brightcove_config($br
 function _seo_rich_snippets_create_ld_json_from_brightcove_config($brightcove_id, $bcid, $type = 'video') {
   $json_ld = NULL;
   try {
-    $data = [
-      'name' => '',
-      'keywords' => '',
-      'description' => '',
-    ];
+    $info = [];
     switch ($type) {
       case 'playlist':
-        // @TODO For playlist create ItemList as per
-        // https://search.google.com/structured-data/testing-tool?
-        // utm_campaign=devsite&utm_medium=jsonld&utm_source=video.
         $playlist = brightcove_playlist_load($brightcove_id . '-' . $bcid);
+        $data = _seo_rich_snippets_get_structure_for_item_list_element();
         if ($playlist && isset($playlist->playlist)) {
           $playlist = $playlist->playlist;
-          $data = [
-            'name' => $playlist->getName(),
-            'description' => $playlist->getDescription(),
-            'text' => $playlist->getDescription(),
-          ];
+          $pos = 1;
+          foreach($playlist->getVideoIds() as $video_id) {
+            $video_ld_json = _seo_rich_snippets_create_ld_json_from_brightcove_config($video_id, $bcid, 'video');
+            $decoded = json_decode($video_ld_json, TRUE);
+            unset($decoded['@context']);
+            $decoded['position'] = $pos;
+            $pos++;
+            $data['itemListElement'][] = $decoded;
+          }
         }
+        $info = $data;
         break;
 
       case 'video':
         $client = entity_load_single('brightcove_client', $bcid);
         $video = brightcove_load_video($brightcove_id, $client);
+        $upload_date = $video->getCreatedAt();
         $data = [
           'name' => $video->getName(),
           'keywords' => implode(', ', $video->getTags()),
-          'description' => $video->getDescription(),
-          'text' => $video->getLongDescription(),
+          'description' => $video->getLongDescription(),
+          'url' => url(current_path(), ['absolute' => TRUE, 'query' => ['vid' => $video->getId()]]),
+          'uploadDate' => $upload_date,
+        ];
+        $images = $video->getImages();
+        $thumbnails = $images['thumbnail'];
+        $sources = $thumbnails->getSources();
+        foreach ($sources as $source) {
+          $data['thumbnailUrl'][] = $source['src'];
+        }
+        if (empty($data['description'])) {
+          $data['description'] = $video->getName();
+        }
+        $info = $data + [
+          '@context' => 'https://schema.org',
+          '@type' => 'VideoObject',
         ];
         break;
     }
-    $info = $data + [
-        '@context' => 'https://schema.org',
-        '@type' => 'VideoObject',
-        'publisher' => _seo_rich_snippets_get_embeddable_snippet(SEO_RICH_SNIPPETS_CORPORATION),
-      ];
     foreach ($info as $key => $value) {
       if (empty($value)) {
         unset($info[$key]);
@@ -359,11 +367,13 @@ function _seo_rich_snippets_create_ld_json_from_brightcove_config($brightcove_id
 }
 
 /**
- * Helper function to retrieve embeddable type.
+ * Get itemListElement structure.
  */
-function _seo_rich_snippets_get_embeddable_snippet($name) {
-  $snippet = _seo_rich_snippets_get_ld_json($name);
-  $decoded_snippet = json_decode($snippet, TRUE);
-  unset($decoded_snippet['@context']);
-  return $decoded_snippet;
+function _seo_rich_snippets_get_structure_for_item_list_element() {
+  $structure = [
+    '@context' => 'https://schema.org',
+    '@type' => 'ItemList',
+    'itemListElement' => []
+  ];
+  return $structure;
 }
