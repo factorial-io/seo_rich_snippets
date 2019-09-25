@@ -268,42 +268,102 @@ function seo_rich_snippets_preprocess_field(&$vars) {
 function _seo_rich_snippets_process_brightcove_field(&$vars) {
   if (!empty($vars['items'])) {
     foreach ($vars['items'] as &$item) {
-      try {
-        $item['#prefix'] = isset($item['#prefix']) ? $item['#prefix'] : '';
-        $bcid = $item['#element']['bcid'];
-        $brightcove_id = $item['#element']['brightcove_id'];
-        $client = entity_load_single('brightcove_client', $bcid);
-        $video = brightcove_load_video($brightcove_id, $client);
-        $info = array(
-          '@context' => 'https://schema.org',
-          '@type' => 'VideoObject',
-          'headline' => $video->getName(),
-          'keywords' => implode(', ', $video->getTags()),
-          'caption' => $video->getDescription(),
-          'text' => $video->getLongDescription(),
-          'publisher' => array(
-            '@type' => 'Organization',
-            'name' => "Giotrif",
-            '@logo' => array(
-              '@type' => 'ImageObject',
-              'url' => 'http://giotrif.com/sites/all/themes/custom/giotrif_frontend/source/svg/logo.svg',
-              'width' => '1101',
-              'height' => '471',
-            ),
-          ),
-        );
-        $script_tag = '<script type="application/ld+json">' . drupal_json_encode($info) . '</script>';
-        $item['#prefix'] = $script_tag . $item['#prefix'];
-      }
-      catch (Exception $exc) {
-        $trace = '<pre>' . $exc->getTraceAsString() . '</pre>';
-        watchdog(
-          'seo_rich_snippets',
-          $trace,
-          NULL,
-          WATCHDOG_ERROR
-        );
-      }
+      $bcid = $item['#element']['bcid'];
+      $brightcove_id = $item['#element']['brightcove_id'];
+      $type = ($item['#type'] == 'brightcove-playlist') ? 'playlist' : 'video';
+      $script_tag = _seo_rich_snippets_create_ld_json_script_tag_from_brightcove_config($brightcove_id, $bcid, $type);
+      $item['#prefix'] = isset($item['#prefix']) ? $item['#prefix'] : '';
+      $item['#prefix'] = drupal_render($script_tag) . $item['#prefix'];
     }
   }
+}
+
+
+/**
+ * Helper to extract and attach rich video snippets to brightcove fields.
+ */
+function _seo_rich_snippets_create_ld_json_script_tag_from_brightcove_config($brightcove_id, $bcid, $type = 'video') {
+  $script_tag = '<!-- seo_rich_snippets:VideoObject ??? -->';
+  if ($json_ld = _seo_rich_snippets_create_ld_json_from_brightcove_config($brightcove_id, $bcid, $type)) {
+    $script_tag = array(
+      '#type' => 'html_tag',
+      '#tag' => 'script',
+      '#value' => $json_ld,
+      '#attributes' => array('type' => 'application/ld+json'),
+      '#prefix' => '<!-- seo_rich_snippets:VideoObject -->',
+    );
+  }
+  return $script_tag;
+}
+
+/**
+ * Helper to extract and attach json ld data from brightcove video info.
+ */
+function _seo_rich_snippets_create_ld_json_from_brightcove_config($brightcove_id, $bcid, $type = 'video') {
+  $json_ld = NULL;
+  try {
+    $data = [
+      'name' => '',
+      'keywords' => '',
+      'description' => '',
+    ];
+    switch ($type) {
+      case 'playlist':
+        // @TODO For playlist create ItemList as per
+        // https://search.google.com/structured-data/testing-tool?
+        // utm_campaign=devsite&utm_medium=jsonld&utm_source=video.
+        $playlist = brightcove_playlist_load($brightcove_id . '-' . $bcid);
+        if ($playlist && isset($playlist->playlist)) {
+          $playlist = $playlist->playlist;
+          $data = [
+            'name' => $playlist->getName(),
+            'description' => $playlist->getDescription(),
+            'text' => $playlist->getDescription(),
+          ];
+        }
+        break;
+
+      case 'video':
+        $client = entity_load_single('brightcove_client', $bcid);
+        $video = brightcove_load_video($brightcove_id, $client);
+        $data = [
+          'name' => $video->getName(),
+          'keywords' => implode(', ', $video->getTags()),
+          'description' => $video->getDescription(),
+          'text' => $video->getLongDescription(),
+        ];
+        break;
+    }
+    $info = $data + [
+        '@context' => 'https://schema.org',
+        '@type' => 'VideoObject',
+        'publisher' => _seo_rich_snippets_get_embeddable_snippet(SEO_RICH_SNIPPETS_CORPORATION),
+      ];
+    foreach ($info as $key => $value) {
+      if (empty($value)) {
+        unset($info[$key]);
+      }
+    }
+    $json_ld = drupal_json_encode($info);
+  }
+  catch (Exception $exc) {
+    $trace = '<pre>' . $exc->getTraceAsString() . '</pre>';
+    watchdog(
+      'seo_rich_snippets',
+      $trace,
+      NULL,
+      WATCHDOG_ERROR
+    );
+  }
+  return $json_ld;
+}
+
+/**
+ * Helper function to retrieve embeddable type.
+ */
+function _seo_rich_snippets_get_embeddable_snippet($name) {
+  $snippet = _seo_rich_snippets_get_ld_json($name);
+  $decoded_snippet = json_decode($snippet, TRUE);
+  unset($decoded_snippet['@context']);
+  return $decoded_snippet;
 }
