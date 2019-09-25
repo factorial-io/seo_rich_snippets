@@ -1,6 +1,6 @@
 {
   "name": "factorial-io/seo_rich_snippets",
   "description": "SEO Rich Snippets",
-  "type": "drupal-module",
+  "type": "drupal-custom-module",
   "license": "MIT"
 }
