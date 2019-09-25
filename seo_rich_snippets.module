@@ -311,7 +311,7 @@ function _seo_rich_snippets_create_ld_json_from_brightcove_config($brightcove_id
           $pos = 1;
           foreach($playlist->getVideoIds() as $video_id) {
             $video_ld_json = _seo_rich_snippets_create_ld_json_from_brightcove_config($video_id, $bcid, 'video');
-            $decoded = json_decode($video_ld_json, TRUE);
+            $decoded = drupal_json_decode($video_ld_json);
             unset($decoded['@context']);
             $decoded['position'] = $pos;
             $pos++;
@@ -329,7 +329,7 @@ function _seo_rich_snippets_create_ld_json_from_brightcove_config($brightcove_id
           'name' => $video->getName(),
           'keywords' => implode(', ', $video->getTags()),
           'description' => $video->getLongDescription(),
-          'url' => url(current_path(), ['absolute' => TRUE, 'query' => ['vid' => $video->getId()]]),
+          'url' => 'https://cms.api.brightcove.com/v1/accounts/' . $client->account_id . '/videos/' . $video->getId(),
           'uploadDate' => $upload_date,
         ];
         $images = $video->getImages();
