@@ -309,7 +309,7 @@ function _seo_rich_snippets_create_ld_json_from_brightcove_config($brightcove_id
         if ($playlist && isset($playlist->playlist)) {
           $playlist = $playlist->playlist;
           $pos = 1;
-          foreach($playlist->getVideoIds() as $video_id) {
+          foreach ($playlist->getVideoIds() as $video_id) {
             $video_ld_json = _seo_rich_snippets_create_ld_json_from_brightcove_config($video_id, $bcid, 'video');
             $decoded = drupal_json_decode($video_ld_json);
             unset($decoded['@context']);
@@ -373,7 +373,7 @@ function _seo_rich_snippets_get_structure_for_item_list_element() {
   $structure = [
     '@context' => 'https://schema.org',
     '@type' => 'ItemList',
-    'itemListElement' => []
+    'itemListElement' => [],
   ];
   return $structure;
 }
